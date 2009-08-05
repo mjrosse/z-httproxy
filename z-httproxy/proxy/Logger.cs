@@ -11,12 +11,11 @@ namespace Proxy
     {
         private enum DebugLevel
         {
-            None=0,
-            Debug,
+            Debug=0,
             Message,
             Warning,
             Error,
-            
+            None
         }
 
         private DebugLevel debugLv;
@@ -53,7 +52,7 @@ namespace Proxy
 
         public void Error(string Message)
         {
-            if (debugLv == DebugLevel.None)
+            if ( debugLv == DebugLevel.None)
                 return;
             string msg = InitString("Error");
             msg = msg+"Message-->" + Message;
@@ -63,7 +62,7 @@ namespace Proxy
 
         public void Warning(string Message)
         {
-            if (debugLv < DebugLevel.Warning || debugLv == DebugLevel.None)
+            if (debugLv > DebugLevel.Warning)
                 return;
             string msg = InitString("Warning");
             msg = msg + "Message-->" + Message;
@@ -72,7 +71,7 @@ namespace Proxy
 
         public void Message(string Message)
         {
-            if (debugLv < DebugLevel.Message || debugLv == DebugLevel.None)
+            if (debugLv > DebugLevel.Message)
                 return;
             string msg = InitString("Message");
             msg = msg + "Message-->" + Message;
@@ -81,7 +80,7 @@ namespace Proxy
 
         public void Debug(string Message)
         {
-            if (debugLv == DebugLevel.None)
+            if (debugLv>DebugLevel.Debug)
                 return;
             string msg = InitString("Debug");
             msg = msg + "Message-->" + Message;
@@ -95,9 +94,13 @@ namespace Proxy
 
         public void SaveToFile(string Message)
         {
-            StreamWriter sw = new StreamWriter(@"d:\a.log",true,Encoding.Default);
-            sw.WriteLine(Message);
-            sw.Close();
+            try
+            {
+                StreamWriter sw = new StreamWriter(@"d:\a.log", true, Encoding.Default);
+                sw.WriteLine(Message);
+                sw.Close();
+            }
+            catch { ;}
         }
     }
 
