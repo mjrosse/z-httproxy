@@ -78,6 +78,7 @@ namespace Proxy
             }
             isRunning = true;
             Socket sk;
+            Thread t;
             while (isRunning)
             {
                 try
@@ -91,8 +92,8 @@ namespace Proxy
                 }
 
                 HttpProxyRequestProcesster sp = new HttpProxyRequestProcesster(sk);
-                
-                
+                t = new Thread(new ThreadStart(sp.Process));
+                t.Start();
             }
         }
 
