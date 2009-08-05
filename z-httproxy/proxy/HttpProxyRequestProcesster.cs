@@ -16,6 +16,8 @@ namespace Proxy
         private Socket ClientSocket;
         private Encoding ASCII = Encoding.ASCII;
         private Logger log;
+
+
         private static ArrayList _Threads=new ArrayList();
         public static ArrayList Threads
         {

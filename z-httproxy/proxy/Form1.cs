@@ -23,6 +23,13 @@ namespace Proxy
             Thread ts = new Thread(new ThreadStart(t.Run));
             ts.Start();
             this.button1.Enabled = false;
+            timer1.Start();
+        }
+
+        private void UpdateStatus(object sender, EventArgs e)
+        {
+            this.txt_connectNum.Text = HttpProxy.GetClientNumber().ToString();
+            this.txt_NumberOfRequest.Text = HttpProxy.NumberOfRequest.ToString();
         }
     }
 }

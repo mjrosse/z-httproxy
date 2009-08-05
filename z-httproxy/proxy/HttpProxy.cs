@@ -15,9 +15,13 @@ namespace Proxy
     {
         private static HttpProxy pro = new HttpProxy();
         private int port = 8080;
-
         private bool isRunning;
         private TcpListener tcp;
+        private static long numberOfRequest;
+        public static long NumberOfRequest
+        {
+            get { return numberOfRequest; }
+        }
 
         public HttpProxy()
         {
@@ -59,12 +63,18 @@ namespace Proxy
             }
         }
 
+        public static int GetClientNumber()
+        {
+            return HttpProxyRequestProcesster.Threads.Count;
+        }
+
         public void Run()
         {
             
             if (isRunning == true)
                 return;
 
+            numberOfRequest = 0;
             tcp = new TcpListener(new IPAddress(0), 8080);
 
             try
@@ -94,6 +104,7 @@ namespace Proxy
                 HttpProxyRequestProcesster sp = new HttpProxyRequestProcesster(sk);
                 t = new Thread(new ThreadStart(sp.Process));
                 t.Start();
+                numberOfRequest++;
             }
         }
 
