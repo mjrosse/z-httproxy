@@ -41,6 +41,7 @@ namespace Proxy
                 int Length = ClientSocket.Receive(ReadBuff);
                 if (0 == Length)
                 {
+                    log.Message("客户端发送请求为空，退出处理进程");
                     End();
                     return;
                 }
@@ -48,11 +49,23 @@ namespace Proxy
             catch(Exception e)
             {
                 ProcessException.Process(e);
+                log.Message("读取客户请求数据失败");
                 End();
             }
 
             string ClientMsg = ASCII.GetString(ReadBuff);
-            string Line = ClientMsg.Substring(0, ClientMsg.IndexOf("\r\n"));
+            string Line="";
+            try
+            {
+                Line = ClientMsg.Substring(0, ClientMsg.IndexOf("\r\n"));
+            }
+            catch(Exception e)
+            {
+                ProcessException.Process(e);
+                log.Message("试图分析客户端请求的时候出现错误");
+                End();
+                return;
+            }
             string[] CmdArray = Line.Split(' ');
             string Cmd = CmdArray[0];
             string RawUrl = CmdArray[1];
@@ -101,6 +114,7 @@ namespace Proxy
 
         public void Init()
         {
+            log.Debug("开始新客户端请求处理");
             lock (_Threads)
             {
                 _Threads.Add(Thread.CurrentThread);
@@ -110,10 +124,17 @@ namespace Proxy
 
         public void End()
         {
+            log.Debug("结束客户端请求处理");
             lock (_Threads)
             {
                 _Threads.Remove(Thread.CurrentThread);
             }
+            try
+            {
+                ClientSocket.Shutdown(SocketShutdown.Both);
+                ClientSocket.Close();
+            }
+            catch { ;}
         }
 
 
@@ -203,7 +224,7 @@ namespace Proxy
                 ReqData = ReqData.Replace("http://" + RawUrl, Url);
 
                 // 按照rn切分HTTP头 
-                string[] ReqArray = ReqData.Split(new string[1] { "rn" }, StringSplitOptions.None);
+                string[] ReqArray = ReqData.Split(new string[1] { "\r\n" }, StringSplitOptions.None);
                 ReqData = "";
 
 
@@ -211,17 +232,6 @@ namespace Proxy
                 // 改写Keep-Alive等字段 
                 for (int index = 0; index < ReqArray.Length; index++)
                 {
-                    /* 
-
-                    if (ReqArray[index].StartsWith("Accept-Encoding:")) 
-
-                    { 
-
-                    ReqArray[index] = "Accept-Encoding: deflate"; 
-
-                    } 
-
-                    */
 
                     if (ReqArray[index].StartsWith("Proxy-Connection:"))
                     {
@@ -232,22 +242,11 @@ namespace Proxy
 
                     }
 
-                    /* 
-
-                    else if (ReqArray[index].StartsWith("Keep-Alive:")) 
-
-                    { 
-
-                    ReqArray[index] = ""; 
-
-                    } 
-
-                    */
 
                     // 修改后的字段组合成请求 
                     if (ReqArray[index] != "")
                     {
-                        ReqData = ReqData + ReqArray[index] + "rn";
+                        ReqData = ReqData + ReqArray[index] + "\r\n";
                     }
                 }
 
@@ -264,7 +263,6 @@ namespace Proxy
 
 
             // 使用Poll来判断完成，某些站点会出问题 
-
             while (true)
             {
                 Byte[] RecvBuff = new byte[1024 * 20];
@@ -311,57 +309,6 @@ namespace Proxy
             }
 
 
-
-            /* 
-
-            // 根据接收字节数来判断完成，某些站点会出问题 
-
-            try 
-
-            { 
-
-            while (true) 
-
-            { 
-
-            Byte[] RecvBuff = new byte[1024 * 10]; 
-
-            int Length = IPsocket.Receive(RecvBuff); 
-
-
-
-            if (Length <= 0) 
-
-            { 
-
-            Console.WriteLine("从服务端接收数据完成"); 
-
-            break; 
-
-            } 
-
-            Console.WriteLine("从服务端收到字节", Length); 
-
-
-
-            Length = ClientSocket.Send(RecvBuff, Length, 0); 
-
-            Console.WriteLine("发送字节到客户端", Length); 
-
-            } 
-
-            } 
-
-            catch (Exception e) 
-
-            { 
-
-            Console.WriteLine(e.Message); 
-
-            } 
-
-            */
-
             try
             {
                 ClientSocket.Shutdown(SocketShutdown.Both);
@@ -369,11 +316,7 @@ namespace Proxy
                 IPsocket.Shutdown(SocketShutdown.Both);
                 IPsocket.Close();
             }
-            catch (Exception e)
-            {
-                //Console.WriteLine(e.Message); 
-                ProcessException.Process(e);
-            }
+            catch { ; }
 
         }
 
@@ -419,21 +362,21 @@ namespace Proxy
                         Length = client.Receive(Recv, Recv.Length, 0);
                         if (Length == 0)
                         {
-                            Console.WriteLine("Client is disconnect.");
+                            log.Message("Client is disconnect.");
                             break;
                         }
-                        Console.WriteLine(" Recv bytes from client", Length);
+                        log.Message(" Recv bytes from client "+Length.ToString()+"Byte");
                     }
                     catch (Exception e)
                     {
-                        ProcessException.Process("Read from client error: " + e.Message);
+                        log.Message("Read from client error: " + e.Message);
                         break;
                     }
 
                     try
                     {
                         Length = server.Send(Recv, Length, 0);
-                        Console.WriteLine(" Write bytes to server", Length);
+                        log.Message(" Write bytes to server"+Length);
                     }
                     catch (Exception e)
                     {
@@ -456,7 +399,7 @@ namespace Proxy
                             Console.WriteLine("Server is disconnect");
                             break;
                         }
-                        Console.WriteLine("Recv bytes from server", Length);
+                        log.Message("Recv bytes from server "+Length.ToString()+"Bytes.");
                     }
                     catch (Exception e)
                     {
@@ -467,7 +410,7 @@ namespace Proxy
                     try
                     {
                         Length = client.Send(Recv, Length, 0);
-                        Console.WriteLine(" Write bytes to client", Length);
+                        log.Message(" Write bytes to client "+ Length.ToString()+"Byes.");
                     }
                     catch (Exception e)
                     {
@@ -484,13 +427,13 @@ namespace Proxy
                 client.Close();
                 server.Close();
             }
-            catch (Exception e)
+            catch
             {
-                ProcessException.Process(e.Message);
+                //ProcessException.Process(e.Message);
             }
             finally
             {
-                Console.WriteLine("转发完毕");
+                log.Message("转发完毕");
             }
         } 
     }
