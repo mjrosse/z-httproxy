@@ -36,9 +36,10 @@ namespace Proxy
             Init();
 
             Byte[] ReadBuff = new byte[1024 * 10];
+            int Length = 0;
             try
             {
-                int Length = ClientSocket.Receive(ReadBuff);
+                Length = ClientSocket.Receive(ReadBuff);
                 if (0 == Length)
                 {
                     log.Message("客户端发送请求为空，退出处理进程");
@@ -48,10 +49,11 @@ namespace Proxy
             }
             catch(Exception e)
             {
-                ProcessException.Process(e);
-                log.Message("读取客户请求数据失败");
+                log.Message("读取客户请求数据失败，信息："+e.ToString());
                 End();
             }
+
+
 
             string ClientMsg = ASCII.GetString(ReadBuff);
             string Line="";
@@ -59,10 +61,9 @@ namespace Proxy
             {
                 Line = ClientMsg.Substring(0, ClientMsg.IndexOf("\r\n"));
             }
-            catch(Exception e)
+            catch
             {
-                ProcessException.Process(e);
-                log.Message("试图分析客户端请求的时候出现错误");
+                log.Warning("试图分析客户端请求的时候出现错误");
                 End();
                 return;
             }
@@ -96,6 +97,7 @@ namespace Proxy
             catch (Exception e)
             {
                 ProcessException.Process(e);
+                log.Warning("执行Connect方法的时候，连接目标Web服务器失败");
             }
 
 
@@ -207,7 +209,9 @@ namespace Proxy
             }
             catch (Exception e)
             {
-                ProcessException.Process(new Exception("解析服务器地址异常: " + e.Message));
+                log.Warning("解析服务器地址异常，结束处理");
+                ProcessException.Process(e.ToString());
+                return;
             }
             Socket IPsocket = null;
             try
@@ -224,10 +228,20 @@ namespace Proxy
                 ReqData = ReqData.Replace("http://" + RawUrl, Url);
 
                 // 按照rn切分HTTP头 
-                string[] ReqArray = ReqData.Split(new string[1] { "rn" }, StringSplitOptions.None);
+                //string[] ReqArray = ReqData.Split(new string[1] { "\r\n" }, StringSplitOptions.None);
+                
+
+                string[] body = ReqData.Split(new string[1] { "\r\n\r\n" }, StringSplitOptions.None);
+                string head = null;
+                string post = null;
+
+                head = body[0];
+                if (body.Length == 2)
+                {
+                    post = body[1];
+                }
+                string[] ReqArray = head.Split(new string[1] { "\r\n" }, StringSplitOptions.None);
                 ReqData = "";
-
-
 
                 // 改写Keep-Alive等字段 
                 for (int index = 0; index < ReqArray.Length; index++)
@@ -246,14 +260,14 @@ namespace Proxy
                     // 修改后的字段组合成请求 
                     if (ReqArray[index] != "")
                     {
-                        ReqData = ReqData + ReqArray[index];
-                        if (index < ReqArray.Length)
-                        {
-                            ReqData = ReqData + "\r\n";
-                        }
+                        ReqData = ReqData + ReqArray[index] + "\r\n";
                     }
                 }
-
+                ReqData = ReqData + "\r\n";
+                if (post != null)
+                {
+                    ReqData = ReqData + post;
+                }
                 ReqData = ReqData.Trim();
                 byte[] SendBuff = ASCII.GetBytes(ReqData);
                 IPsocket.Send(SendBuff);
@@ -261,7 +275,8 @@ namespace Proxy
 
             catch (Exception e)
             {
-                ProcessException.Process(new Exception("发送请求到服务器异常: " + e.Message));
+                log.Warning("发送请求到服务器异常");
+                ProcessException.Process(e);
             }
 
 
@@ -270,6 +285,7 @@ namespace Proxy
             while (true)
             {
                 Byte[] RecvBuff = new byte[1024 * 20];
+
                 try
                 {
                     if (!IPsocket.Poll(15 * 1000 * 1000, SelectMode.SelectRead))
@@ -283,6 +299,7 @@ namespace Proxy
                     ProcessException.Process("Poll: " + e.Message);
                     break;
                 }
+
 
                 int Length = 0;
                 try
@@ -300,6 +317,8 @@ namespace Proxy
                     ProcessException.Process("Recv: " + e.Message);
                     break;
                 }
+
+
                 try
                 {
                     Length = ClientSocket.Send(RecvBuff, Length, 0);
@@ -309,6 +328,7 @@ namespace Proxy
                 {
                     ProcessException.Process("Send: " + e.Message);
                 }
+
 
             }
 
